@@ -12,14 +12,18 @@ except ImportError:
 from libs.utils import distance
 import sys
 
-DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
-DEFAULT_FILL_COLOR = QColor(255, 0, 0, 128)
+DEFAULT_LINE_COLOR = QColor(0, 255, 0, 200)
+DEFAULT_FILL_COLOR = QColor(255, 0, 0, 200)
 DEFAULT_SELECT_LINE_COLOR = QColor(255, 255, 255)
-DEFAULT_SELECT_FILL_COLOR = QColor(0, 128, 255, 155)
+DEFAULT_SELECT_FILL_COLOR = QColor(0, 128, 255, 200)
 DEFAULT_VERTEX_FILL_COLOR = QColor(0, 255, 0, 255)
 DEFAULT_HVERTEX_FILL_COLOR = QColor(255, 0, 0)
 MIN_Y_LABEL = 10
 
+'''
+用来设置显示颜色和透明度等信息
+颜色根据标签名的Unicode编码进行自动选择
+'''
 
 class Shape(object):
     P_SQUARE, P_ROUND = range(2)
@@ -35,7 +39,7 @@ class Shape(object):
     vertex_fill_color = DEFAULT_VERTEX_FILL_COLOR
     hvertex_fill_color = DEFAULT_HVERTEX_FILL_COLOR
     point_type = P_ROUND
-    point_size = 8
+    point_size = 5
     scale = 1.0
 
     def __init__(self, label=None, line_color=None, difficult=False, paintLabel=False):

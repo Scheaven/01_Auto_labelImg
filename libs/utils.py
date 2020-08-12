@@ -25,7 +25,6 @@ def newButton(text, icon=None, slot=None):
         b.clicked.connect(slot)
     return b
 
-
 def newAction(parent, text, slot=None, shortcut=None, icon=None,
               tip=None, checkable=False, enabled=True):
     """Create a new action and assign callbacks, shortcuts, etc."""
@@ -81,9 +80,9 @@ def generateColorByText(text):
     s = ustr(text)
     hashCode = int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16)
     r = int((hashCode / 255) % 255)
-    g = int((hashCode / 65025)  % 255)
-    b = int((hashCode / 16581375)  % 255)
-    return QColor(r, g, b, 100)
+    g = int((hashCode / 65025) % 255)
+    b = int((hashCode / 16581375) % 255)
+    return QColor(r, g, b, 200)
 
 def have_qstring():
     '''p3/qt5 get rid of QString wrapper as py3 has native unicode str type'''

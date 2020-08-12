@@ -22,9 +22,10 @@ class YOLOWriter:
         self.localImgPath = localImgPath
         self.verified = False
 
-    def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult):
+    def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult, truncated):
         bndbox = {'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax}
         bndbox['name'] = name
+        bndbox['truncated'] = truncated
         bndbox['difficult'] = difficult
         self.boxlist.append(bndbox)
 
@@ -116,10 +117,10 @@ class YoloReader:
     def getShapes(self):
         return self.shapes
 
-    def addShape(self, label, xmin, ymin, xmax, ymax, difficult):
+    def addShape(self, label, xmin, ymin, xmax, ymax, difficult, truncated):
 
         points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
-        self.shapes.append((label, points, None, None, difficult))
+        self.shapes.append((label, points, None, None, difficult, truncated))
 
     def yoloLine2Shape(self, classIndex, xcen, ycen, w, h):
         label = self.classes[int(classIndex)]
@@ -143,4 +144,4 @@ class YoloReader:
             label, xmin, ymin, xmax, ymax = self.yoloLine2Shape(classIndex, xcen, ycen, w, h)
 
             # Caveat: difficult flag is discarded when saved as yolo format.
-            self.addShape(label, xmin, ymin, xmax, ymax, False)
+            self.addShape(label, xmin, ymin, xmax, ymax, False, False)

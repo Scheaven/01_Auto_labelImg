@@ -14,8 +14,9 @@ class TestPascalVocRW(unittest.TestCase):
         # Test Write/Read
         writer = PascalVocWriter('tests', 'test', (512, 512, 1), localImgPath='tests/test.512.512.bmp')
         difficult = 1
-        writer.addBndBox(60, 40, 430, 504, 'person', difficult)
-        writer.addBndBox(113, 40, 450, 403, 'face', difficult)
+        truncated = 1
+        writer.addBndBox(60, 40, 430, 504, 'person', difficult, truncated)
+        writer.addBndBox(113, 40, 450, 403, 'face', difficult, truncated)
         writer.save('tests/test.xml')
 
         reader = PascalVocReader('tests/test.xml')

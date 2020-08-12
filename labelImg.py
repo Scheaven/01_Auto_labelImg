@@ -8,6 +8,7 @@ import platform
 import re
 import sys
 import subprocess
+import shutil
 
 from functools import partial
 from collections import defaultdict
@@ -132,9 +133,15 @@ class MainWindow(QMainWindow, WindowMixin):
         self.editButton = QToolButton()
         self.editButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
 
+        # Create a widget for edit and diffc button
+        self.trunButton = QCheckBox(getStr('useTruncated'))
+        self.trunButton.setChecked(False)
+        self.trunButton.stateChanged.connect(self.trunstate)
+
         # Add some of widgets to listLayout
         listLayout.addWidget(self.editButton)
         listLayout.addWidget(self.diffcButton)
+        listLayout.addWidget(self.trunButton)
         listLayout.addWidget(useDefaultLabelContainer)
 
         # Create and add combobox for showing unique labels in group
@@ -199,10 +206,18 @@ class MainWindow(QMainWindow, WindowMixin):
         self.dockFeatures = QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetFloatable
         self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
 
-        # Actions
+        # Actions ：增加的的左侧栏和菜单栏按钮
         action = partial(newAction, self)
         quit = action(getStr('quit'), self.close,
                       'Ctrl+Q', 'quit', getStr('quitApp'))
+
+        imgPass = action(getStr('imgPass'), self.imgPass,
+                      'Ctrl+B', 'pass', getStr('img_pass_Detail'))
+
+        imgError = action(getStr('imgError'), self.imgError,
+                      'Ctrl+M', 'error', getStr('error_Detail'))
+
+        deleteImg = action(getStr('deleteImg'), self.deleteImg, 'Ctrl+D', 'close', getStr('deleteImgDetail'))
 
         open = action(getStr('openFile'), self.openFile,
                       'Ctrl+O', 'open', getStr('openFileDetail'))
@@ -239,7 +254,6 @@ class MainWindow(QMainWindow, WindowMixin):
 
         close = action(getStr('closeCur'), self.closeFile, 'Ctrl+W', 'close', getStr('closeCurDetail'))
 
-        deleteImg = action(getStr('deleteImg'), self.deleteImg, 'Ctrl+D', 'close', getStr('deleteImgDetail'))
 
         resetAll = action(getStr('resetAll'), self.resetAll, None, 'resetall', getStr('resetAllDetail'))
 
@@ -401,11 +415,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
+            imgPass, imgError, deleteImg, open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, save, save_format, None,
+            imgPass, imgError, deleteImg, open, opendir, changeSavedir, openNextImg, openPrevImg, save, save_format, None,
             createMode, editMode, None,
             hideAll, showAll)
 
@@ -424,6 +438,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.fit_window = False
         # Add Chris
         self.difficult = False
+        self.truncated = False
 
         ## Fix the compatible issue for qt4 and qt5. Convert the QStringList to python list
         if settings.get(SETTING_RECENT_FILES):
@@ -457,6 +472,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas.setDrawingColor(self.lineColor)
         # Add chris
         Shape.difficult = self.difficult
+        Shape.truncated = self.truncated
+
 
         def xbool(x):
             if isinstance(x, QVariant):
@@ -511,6 +528,15 @@ class MainWindow(QMainWindow, WindowMixin):
             self.actions.save_format.setIcon(newIcon("format_yolo"))
             self.labelFileFormat = LabelFileFormat.YOLO
             LabelFile.suffix = TXT_EXT
+
+    # def set_addButton(self, button_name):
+    #     if button_name == "imgPass":
+    #         self.actions.save_format.setText("img pass")
+    #         self.actions.save_format.setIcon(newIcon("yes"))
+    #
+    #     elif button_name == "imgError":
+    #         self.actions.save_format.setText("img error")
+    #         self.actions.save_format.setIcon(newIcon("no"))
 
     def change_format(self):
         if self.labelFileFormat == LabelFileFormat.PASCAL_VOC:
@@ -652,6 +678,8 @@ class MainWindow(QMainWindow, WindowMixin):
     def setCreateMode(self):
         assert self.advanced()
         self.toggleDrawMode(False)
+        self.saveFile()
+
 
     def setEditMode(self):
         assert self.advanced()
@@ -725,6 +753,33 @@ class MainWindow(QMainWindow, WindowMixin):
         except:
             pass
 
+    # Add chris
+    def trunstate(self, item= None):
+        """ Function to handle Occlusion examples
+        Update on each object """
+        if not self.canvas.editing():
+            return
+
+        item = self.currentItem()
+        if not item: # If not selected Item, take the first one
+            item = self.labelList.item(self.labelList.count()-1)
+
+        truncated = self.trunButton.isChecked()
+
+        try:
+            shape = self.itemsToShapes[item]
+        except:
+            pass
+        # Checked and Update
+        try:
+            if truncated != shape.truncated:
+                shape.truncated = truncated
+                self.setDirty()
+            else:  # User probably changed item visibility
+                self.canvas.setShapeVisible(shape, item.checkState() == Qt.Checked)
+        except:
+            pass
+
     # React to canvas signals.
     def shapeSelectionChanged(self, selected=False):
         if self._noSelectionSlot:
@@ -766,7 +821,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
-        for label, points, line_color, fill_color, difficult in shapes:
+        for label, points, line_color, fill_color, difficult, truncated in shapes:
             shape = Shape(label=label)
             for x, y in points:
 
@@ -777,6 +832,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
                 shape.addPoint(QPointF(x, y))
             shape.difficult = difficult
+            shape.truncated = truncated
             shape.close()
             s.append(shape)
 
@@ -817,7 +873,8 @@ class MainWindow(QMainWindow, WindowMixin):
                         fill_color=s.fill_color.getRgb(),
                         points=[(p.x(), p.y()) for p in s.points],
                        # add chris
-                        difficult = s.difficult)
+                        difficult = s.difficult,
+                        truncated = s.truncated)
 
         shapes = [format_shape(shape) for shape in self.canvas.shapes]
         # Can add differrent annotation formats here
@@ -864,6 +921,7 @@ class MainWindow(QMainWindow, WindowMixin):
             shape = self.itemsToShapes[item]
             # Add Chris
             self.diffcButton.setChecked(shape.difficult)
+            self.trunButton.setChecked(shape.truncated)
 
     def labelItemChanged(self, item):
         shape = self.itemsToShapes[item]
@@ -897,6 +955,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Add Chris
         self.diffcButton.setChecked(False)
+        self.trunButton.setChecked(False)
         if text is not None:
             self.prevLabelText = text
             generate_color = generateColorByText(text)
@@ -1095,6 +1154,9 @@ class MainWindow(QMainWindow, WindowMixin):
             return True
         return False
 
+    '''
+        activate 调用的标签文件函数；
+    '''
     def resizeEvent(self, event):
         if self.canvas and not self.image.isNull()\
            and self.zoomMode != self.MANUAL_ZOOM:
@@ -1210,6 +1272,7 @@ class MainWindow(QMainWindow, WindowMixin):
             if filename:
                 if isinstance(filename, (tuple, list)):
                     filename = filename[0]
+            print("filname",filename)
             self.loadPascalXMLByFilename(filename)
 
     def openDirDialog(self, _value=False, dirpath=None, silent=False):
@@ -1227,8 +1290,16 @@ class MainWindow(QMainWindow, WindowMixin):
                                                          QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
         else:
             targetDirPath = ustr(defaultOpenDirPath)
+
+        # print(targetDirPath)
+        # self.defaultSaveDir = "".join([targetDirPath, "/Annotations/"])
+        print(os.getcwd(),os.sep)
+        self.defaultSaveDir = "".join([targetDirPath, os.sep, "Annotations", os.sep])
+        print(self.defaultSaveDir)
         self.lastOpenDir = targetDirPath
         self.importDirImages(targetDirPath)
+
+        # self.changeSavedirDialog()
 
     def importDirImages(self, dirpath):
         if not self.mayContinue() or not dirpath:
@@ -1243,6 +1314,14 @@ class MainWindow(QMainWindow, WindowMixin):
         for imgPath in self.mImgList:
             item = QListWidgetItem(imgPath)
             self.fileListWidget.addItem(item)
+        print("img size:",self.fileListWidget.count())
+        self.fileListWidget
+        # print("self.defaultSaveDir",self.defaultSaveDir)
+        # filename = self.mImgList[0].split(".")[0].replace("/JPEGImages/", "/Annotations/") + ".xml"
+        # if self.labelFileFormat == LabelFileFormat.PASCAL_VOC:
+        #     self.loadPascalXMLByFilename(filename)
+
+
 
     def verifyImg(self, _value=False):
         # Proceding next image without dialog if having any label
@@ -1264,22 +1343,23 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def openPrevImg(self, _value=False):
         # Proceding prev image without dialog if having any label
+        self.saveFile()
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
                 if self.dirty is True:
                     self.saveFile()
             else:
                 self.changeSavedirDialog()
-                return
+                return False
 
         if not self.mayContinue():
-            return
+            return False
 
         if len(self.mImgList) <= 0:
-            return
+            return False
 
         if self.filePath is None:
-            return
+            return False
 
         currIndex = self.mImgList.index(self.filePath)
         if currIndex - 1 >= 0:
@@ -1287,7 +1367,10 @@ class MainWindow(QMainWindow, WindowMixin):
             if filename:
                 self.loadFile(filename)
 
+        return True
+
     def openNextImg(self, _value=False):
+        self.saveFile()
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
@@ -1295,13 +1378,13 @@ class MainWindow(QMainWindow, WindowMixin):
                     self.saveFile()
             else:
                 self.changeSavedirDialog()
-                return
+                return False
 
         if not self.mayContinue():
-            return
+            return False
 
         if len(self.mImgList) <= 0:
-            return
+            return False
 
         filename = None
         if self.filePath is None:
@@ -1313,6 +1396,74 @@ class MainWindow(QMainWindow, WindowMixin):
 
         if filename:
             self.loadFile(filename)
+
+        return True
+
+        # filename = self.mImgList[0].split(".")[0].replace("/JPEGImages/", "/Annotations/") + ".xml"
+        # if self.labelFileFormat == LabelFileFormat.PASCAL_VOC:
+        #     self.loadPascalXMLByFilename(filename)
+
+    def imgPass(self, _value=False):
+        movePath = self.filePath
+        if movePath is not None:
+            if not self.openNextImg():
+                return
+            path_list = movePath.split(os.sep)
+            path_list[-3] = "success"
+            n_path = os.sep
+            for path in path_list:
+                n_path = os.path.join(n_path, path)
+            img_path, img_name = os.path.split(n_path)
+            if not os.path.exists(img_path):
+                os.makedirs(img_path)
+            if os.path.exists(movePath):
+                shutil.move(movePath, n_path)
+
+            xml_path = img_path.replace("JPEGImages", "Annotations")
+            print(img_path, xml_path)
+            if not os.path.exists(xml_path):
+                os.makedirs(xml_path)
+
+            src_xml = os.path.splitext(movePath)[0].replace("JPEGImages", "Annotations")+".xml"
+            if os.path.exists(src_xml):
+                shutil.move(src_xml, os.path.join(xml_path,os.path.splitext(img_name)[0]+".xml"))
+
+            index = self.mImgList.index(movePath)
+            print("=====", index, len(self.mImgList), self.fileListWidget.count())
+            # fileWidgetItem = self.fileListWidget.item(index)
+            # self.fileListWidget.removeItemWidget(fileWidgetItem)
+            self.fileListWidget.takeItem(index)
+            self.mImgList.pop(index)
+            print("=====", index, len(self.mImgList), self.fileListWidget.count())
+
+
+    def imgError(self, _value=False):
+        movePath = self.filePath
+        if movePath is not None:
+            if not self.openNextImg():
+                return
+            path_list = movePath.split(os.sep)
+            path_list[-3] = "error"
+            n_path = os.sep
+            for path in path_list:
+                n_path = os.path.join(n_path, path)
+            img_path, img_name = os.path.split(n_path)
+            if not os.path.exists(img_path):
+                os.makedirs(img_path)
+            shutil.move(movePath, n_path)
+            xml_path = img_path.replace("JPEGImages", "Annotations")
+            print(img_path, xml_path)
+            if not os.path.exists(xml_path):
+                os.makedirs(xml_path)
+            shutil.move(os.path.splitext(movePath)[0].replace("JPEGImages", "Annotations")+".xml", os.path.join(xml_path,os.path.splitext(img_name)[0]+".xml"))
+
+            index = self.mImgList.index(movePath)
+            print("=====",index,len(self.mImgList),self.fileListWidget.count())
+            fileWidgetItem = self.fileListWidget.item(index)
+            # self.fileListWidget.removeItemWidget(fileWidgetItem)
+            self.fileListWidget.takeItem(index)
+            self.mImgList.pop(index)
+            print("=====",index,len(self.mImgList),self.fileListWidget.count())
 
     def openFile(self, _value=False):
         if not self.mayContinue():
@@ -1383,7 +1534,8 @@ class MainWindow(QMainWindow, WindowMixin):
         if deletePath is not None:
             self.openNextImg()
             os.remove(deletePath)
-            self.importDirImages(self.lastOpenDir)
+            filename = deletePath.split(".")[0].replace("JPEGImages", "Annotations") + ".xml"
+            os.remove(filename)
 
     def resetAll(self):
         self.settings.reset()
@@ -1422,6 +1574,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.noShapes():
             for action in self.actions.onShapesPresent:
                 action.setEnabled(False)
+        self.saveFile()
 
     def chshapeLineColor(self):
         color = self.colorDialog.getColor(self.lineColor, u'Choose line color',
@@ -1480,7 +1633,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.set_format(FORMAT_YOLO)
         tYoloParseReader = YoloReader(txtPath, self.image)
         shapes = tYoloParseReader.getShapes()
-        print (shapes)
+        print(shapes)
         self.loadLabels(shapes)
         self.canvas.verified = tYoloParseReader.verified
 

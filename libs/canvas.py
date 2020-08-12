@@ -19,7 +19,10 @@ CURSOR_MOVE = Qt.ClosedHandCursor
 CURSOR_GRAB = Qt.OpenHandCursor
 
 # class Canvas(QGLWidget):
+'''
+鼠标事件，中间会话框部分的画面
 
+'''
 
 class Canvas(QWidget):
     zoomRequest = pyqtSignal(int)
@@ -241,11 +244,11 @@ class Canvas(QWidget):
                 # Cancel the move by deleting the shadow copy.
                 self.selectedShapeCopy = None
                 self.repaint()
-        elif ev.button() == Qt.LeftButton and self.selectedShape:
-            if self.selectedVertex():
-                self.overrideCursor(CURSOR_POINT)
-            else:
-                self.overrideCursor(CURSOR_GRAB)
+        # elif ev.button() == Qt.LeftButton and self.selectedShape: # 注释掉了送掉后画框的功能
+        #     if self.selectedVertex():
+        #         self.overrideCursor(CURSOR_POINT)
+        #     else:
+        #         self.overrideCursor(CURSOR_GRAB)
         elif ev.button() == Qt.LeftButton:
             pos = self.transformPos(ev.pos())
             if self.drawing():
