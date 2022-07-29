@@ -158,6 +158,7 @@ class MainWindow(QMainWindow, WindowMixin):
         # Connect to itemChanged to detect checkbox changes.
         self.labelList.itemChanged.connect(self.labelItemChanged)
         listLayout.addWidget(self.labelList)
+        self.back_queue = []  # 存储需要撤回的信息
 
 
 
@@ -218,6 +219,9 @@ class MainWindow(QMainWindow, WindowMixin):
                       'Ctrl+M', 'error', getStr('error_Detail'))
 
         deleteImg = action(getStr('deleteImg'), self.deleteImg, 'Ctrl+D', 'close', getStr('deleteImgDetail'))
+
+        get_back = action(getStr('get_back'), self.get_back,
+                      'Ctrl+Z', 'get_back', getStr('back_Detail'))
 
         open = action(getStr('openFile'), self.openFile,
                       'Ctrl+O', 'open', getStr('openFileDetail'))
@@ -415,11 +419,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            imgPass, imgError, deleteImg, open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
+            imgPass, imgError, deleteImg, get_back, open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
-            imgPass, imgError, deleteImg, open, opendir, changeSavedir, openNextImg, openPrevImg, save, save_format, None,
+            imgPass, imgError, deleteImg, get_back, open, opendir, changeSavedir, openNextImg, openPrevImg, save, save_format, None,
             createMode, editMode, None,
             hideAll, showAll)
 
@@ -429,7 +433,7 @@ class MainWindow(QMainWindow, WindowMixin):
         # Application state.
         self.image = QImage()
         self.filePath = ustr(defaultFilename)
-        self.lastOpenDir= None
+        self.lastOpenDir = None
         self.recentFiles = []
         self.maxRecent = 7
         self.lineColor = None
@@ -439,6 +443,8 @@ class MainWindow(QMainWindow, WindowMixin):
         # Add Chris
         self.difficult = False
         self.truncated = False
+        self.bug_difficult = False #防止编辑的bug出现
+        self.bug_truncated = False #防止编辑的bug出现
 
         ## Fix the compatible issue for qt4 and qt5. Convert the QStringList to python list
         if settings.get(SETTING_RECENT_FILES):
@@ -660,6 +666,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas.setEditing(False)
         self.actions.create.setEnabled(False)
 
+
+
     def toggleDrawingSensitive(self, drawing=True):
         """In the middle of drawing, toggling between modes should be disabled."""
         self.actions.editMode.setEnabled(not drawing)
@@ -672,18 +680,21 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def toggleDrawMode(self, edit=True):
         self.canvas.setEditing(edit)
-        self.actions.createMode.setEnabled(edit)
-        self.actions.editMode.setEnabled(not edit)
+        self.actions.createMode.setEnabled(edit)    # 设置按钮是否可以点击
+        self.actions.editMode.setEnabled(not edit) # 设置按钮是否可以点击
 
     def setCreateMode(self):
         assert self.advanced()
         self.toggleDrawMode(False)
-        self.saveFile()
 
 
     def setEditMode(self):
         assert self.advanced()
         self.toggleDrawMode(True)
+        # print("--self.bug_difficult:",  self.bug_difficult)
+        # self.difficult = self.bug_difficult
+        # self.truncated = self.bug_truncated
+        # print("--self.bdifficult:",  self.difficult)
         self.labelSelectionChanged()
 
     def updateFileMenu(self):
@@ -1428,13 +1439,17 @@ class MainWindow(QMainWindow, WindowMixin):
             if os.path.exists(src_xml):
                 shutil.move(src_xml, os.path.join(xml_path,os.path.splitext(img_name)[0]+".xml"))
 
+            self.back_queue.append({"dst_img":n_path, "ori_img":movePath, "dst_xml":os.path.join(xml_path, os.path.splitext(img_name)[0]+".xml"), "ori_xml":src_xml})
+            if self.back_queue.__len__()>20:
+                self.back_queue.pop(0)
+
             index = self.mImgList.index(movePath)
-            print("=====", index, len(self.mImgList), self.fileListWidget.count())
+            # print("=====", index, len(self.mImgList), self.fileListWidget.count())
             # fileWidgetItem = self.fileListWidget.item(index)
             # self.fileListWidget.removeItemWidget(fileWidgetItem)
             self.fileListWidget.takeItem(index)
             self.mImgList.pop(index)
-            print("=====", index, len(self.mImgList), self.fileListWidget.count())
+            print("通过一张", index, len(self.mImgList), self.fileListWidget.count())
 
 
     def imgError(self, _value=False):
@@ -1457,13 +1472,73 @@ class MainWindow(QMainWindow, WindowMixin):
                 os.makedirs(xml_path)
             shutil.move(os.path.splitext(movePath)[0].replace("JPEGImages", "Annotations")+".xml", os.path.join(xml_path,os.path.splitext(img_name)[0]+".xml"))
 
+            self.back_queue.append({"dst_img": n_path, "ori_img": movePath,
+                                    "dst_xml": os.path.join(xml_path,os.path.splitext(img_name)[0]+".xml"),
+                                    "ori_xml": os.path.splitext(movePath)[0].replace("JPEGImages", "Annotations")+".xml"})
+            if self.back_queue.__len__()>20:
+                self.back_queue.pop(0)
+
             index = self.mImgList.index(movePath)
-            print("=====",index,len(self.mImgList),self.fileListWidget.count())
+            # print("=====", index, len(self.mImgList), self.fileListWidget.count())
             fileWidgetItem = self.fileListWidget.item(index)
             # self.fileListWidget.removeItemWidget(fileWidgetItem)
             self.fileListWidget.takeItem(index)
             self.mImgList.pop(index)
-            print("=====",index,len(self.mImgList),self.fileListWidget.count())
+            print("待标注一张", index, len(self.mImgList), self.fileListWidget.count())
+
+    def get_back(self, _value=False):
+        back_item = self.back_queue.pop()
+        shutil.move(back_item.get("dst_img"), back_item.get("ori_img"))
+        shutil.move(back_item.get("dst_xml"), back_item.get("ori_xml"))
+        # self.mImgList.append(back_item.get("ori_img"))
+        self.mImgList.insert(0, back_item.get("ori_img"))
+        item = QListWidgetItem(back_item.get("ori_img"))
+        self.fileListWidget.insertItem(0, item)
+        self.loadFile(back_item.get("ori_img"))
+
+
+
+        # index = self.mImgList.index(movePath)
+        # # print("=====",index,len(self.mImgList),self.fileListWidget.count())
+        # fileWidgetItem = self.fileListWidget.item(index)
+        # # self.fileListWidget.removeItemWidget(fileWidgetItem)
+        # self.fileListWidget.takeItem(index)
+        # self.mImgList.pop(index)
+        print("撤销一张：", len(self.mImgList), self.fileListWidget.count())
+        #
+        #
+        # for imgPath in self.mImgList:
+        #     item = QListWidgetItem(imgPath)
+        #     self.fileListWidget.addItem(item)
+        # print("img size:", self.fileListWidget.count())
+        # self.fileListWidget
+
+
+        # if movePath is not None:
+        #     if not self.openNextImg():
+        #         return
+        #     path_list = movePath.split(os.sep)
+        #     path_list[-3] = "error"
+        #     n_path = os.sep
+        #     for path in path_list:
+        #         n_path = os.path.join(n_path, path)
+        #     img_path, img_name = os.path.split(n_path)
+        #     if not os.path.exists(img_path):
+        #         os.makedirs(img_path)
+        #     shutil.move(movePath, n_path)
+        #     xml_path = img_path.replace("JPEGImages", "Annotations")
+        #     print(img_path, xml_path)
+        #     if not os.path.exists(xml_path):
+        #         os.makedirs(xml_path)
+        #     shutil.move(os.path.splitext(movePath)[0].replace("JPEGImages", "Annotations")+".xml", os.path.join(xml_path,os.path.splitext(img_name)[0]+".xml"))
+        #
+        #     index = self.mImgList.index(movePath)
+        #     print("=====",index,len(self.mImgList),self.fileListWidget.count())
+        #     fileWidgetItem = self.fileListWidget.item(index)
+        #     # self.fileListWidget.removeItemWidget(fileWidgetItem)
+        #     self.fileListWidget.takeItem(index)
+        #     self.mImgList.pop(index)
+        #     print("=====", index, len(self.mImgList), self.fileListWidget.count())
 
     def openFile(self, _value=False):
         if not self.mayContinue():
@@ -1478,6 +1553,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.loadFile(filename)
 
     def saveFile(self, _value=False):
+        self.toggleDrawMode(True)
         if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):
             if self.filePath:
                 imgFileName = os.path.basename(self.filePath)

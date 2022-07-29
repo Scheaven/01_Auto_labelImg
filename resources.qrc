@@ -19,6 +19,7 @@
 <file alias="open">resources/icons/open.png</file>
 <file alias="pass">resources/icons/yes.png</file>
 <file alias="error">resources/icons/no.png</file>
+<file alias="get_back">resources/icons/back.png</file>
 <file alias="save">resources/icons/save.png</file>
 <file alias="format_voc">resources/icons/format_voc.png</file>
 <file alias="format_yolo">resources/icons/format_yolo.png</file>

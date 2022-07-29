@@ -4,9 +4,11 @@
 4、预设classes ,但是无法封装需要在运行文件路径的./data/predefined_classes.txt中设置
 
 经过测试，仍然存在的bug:
-1、在Ubuntu下最大化窗口会直接关闭
+1、在Ubuntu下最大化窗口会直接关闭(ubuntu系统服务器不会，但是使用xshell会)
 2、Ubuntu下create bbox,只有第一次是弹出预设预设classes选择的，
    其他都是默认第一个并且编辑修改只能手动退出绘框模式
+3、绘图模式下，操作右侧栏按钮信息无效，必须退出绘图模型才行
+4、选择了一个单选类（eg.person）,绘制一个person 后立马全部框都会重现
 
 
 
@@ -31,6 +33,8 @@ Windows + Anaconda
     python labelImg.py [IMAGE_PATH] [PRE-DEFINED CLASS FILE]
 
 
+软件封装：(首先使用pip安装pyinstaller)
+pyinstaller -F labelImg.py
 
 
 项目文件简易说明：
@@ -38,6 +42,7 @@ Windows + Anaconda
 
 labelImg.py ：可增减按钮等信息（增加信息需要修改resources/strings下的string.properties文字信息，icons下放置图标。 修改需要重新编译）
 
+图片路径文件在resources.qrc中
 
 canvas.py 中间显示框的鼠标事件等信息
 
