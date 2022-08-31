@@ -9,9 +9,14 @@ import re
 import sys
 import subprocess
 import shutil
+import cv2
 
 from functools import partial
 from collections import defaultdict
+from autoTools.src.tracker.tracker import Tracker
+from autoTools.src.utils.result_tools import addResult
+from autoTools.src.utils.model_tools import iou
+import numpy as np
 
 try:
     from PyQt5.QtGui import *
@@ -127,6 +132,9 @@ class MainWindow(QMainWindow, WindowMixin):
         useDefaultLabelContainer.setLayout(useDefaultLabelQHBoxLayout)
 
         # Create a widget for edit and diffc button
+        self.autoLabelButton = QCheckBox(getStr('useAutoLabel'))
+        self.autoLabelButton.setChecked(False)
+        self.autoLabelButton.stateChanged.connect(self.btnstate)
         self.diffcButton = QCheckBox(getStr('useDifficult'))
         self.diffcButton.setChecked(False)
         self.diffcButton.stateChanged.connect(self.btnstate)
@@ -140,6 +148,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Add some of widgets to listLayout
         listLayout.addWidget(self.editButton)
+        listLayout.addWidget(self.autoLabelButton)
         listLayout.addWidget(self.diffcButton)
         listLayout.addWidget(self.trunButton)
         listLayout.addWidget(useDefaultLabelContainer)
@@ -159,8 +168,6 @@ class MainWindow(QMainWindow, WindowMixin):
         self.labelList.itemChanged.connect(self.labelItemChanged)
         listLayout.addWidget(self.labelList)
         self.back_queue = []  # 存储需要撤回的信息
-
-
 
         self.dock = QDockWidget(getStr('boxLabelText'), self)
         self.dock.setObjectName(getStr('labels'))
@@ -206,6 +213,14 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.dockFeatures = QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetFloatable
         self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
+
+        ''' 自动标注部分代码 '''
+        self.auto_model = Tracker()
+        self.do_autoLabel=False  #是否启动自动化标注
+        self.isInitAuto = False  #是否进行了追踪初始化
+        self.auto_objs = []
+        self.auto_results = []
+        self.iou_th=0.4
 
         # Actions ：增加的的左侧栏和菜单栏按钮
         action = partial(newAction, self)
@@ -749,6 +764,14 @@ class MainWindow(QMainWindow, WindowMixin):
             item = self.labelList.item(self.labelList.count()-1)
 
         difficult = self.diffcButton.isChecked()
+        self.do_autoLabel = self.autoLabelButton.isChecked()
+
+        if self.do_autoLabel:
+            self.auto_model.reset_autoModel()
+        else:
+            self.auto_objs.clear()
+            self.auto_results.clear()
+            self.isInitAuto=False
 
         try:
             shape = self.itemsToShapes[item]
@@ -877,8 +900,14 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.labelFile is None:
             self.labelFile = LabelFile()
             self.labelFile.verified = self.canvas.verified
-
+        self.auto_objs.clear()
         def format_shape(s):
+            # i=0
+            auto_w = s.points[2].x()-s.points[0].x()
+            auto_h = s.points[2].y()-s.points[0].y()
+            if(auto_w>0 and auto_h>0):
+                self.auto_objs.append({'rect':[s.points[0].x(), s.points[0].y(), auto_w, auto_h], "label":s.label})
+
             return dict(label=s.label,
                         line_color=s.line_color.getRgb(),
                         fill_color=s.fill_color.getRgb(),
@@ -903,6 +932,22 @@ class MainWindow(QMainWindow, WindowMixin):
             else:
                 self.labelFile.save(annotationFilePath, shapes, self.filePath, self.imageData,
                                     self.lineColor.getRgb(), self.fillColor.getRgb())
+            if self.do_autoLabel and not self.isInitAuto:
+                self.auto_model.reset_autoModel()
+                frame = cv2.imread(self.filePath)
+                bboxs = []
+                for item in self.auto_objs:
+                    bbox = list(map(int, item.get("rect")))
+                    bboxs.append(bbox)
+                    # cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[0]+bbox[2], bbox[1]+bbox[3]), (0, 255, 0), 3)
+                    # cv2.putText(frame, item.get("label"), (bbox[0], bbox[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+                # cv2.imshow("sdf",frame)
+                # cv2.waitKey(0)
+                if(len(bboxs)):
+                    self.auto_model.init(frame, bboxs)
+                    self.isInitAuto = True
+                    print("------------self.auto_model.init-----------")
+
             print('Image:{0} -> Annotation:{1}'.format(self.filePath, annotationFilePath))
             return True
         except LabelFileError as e:
@@ -1142,15 +1187,15 @@ class MainWindow(QMainWindow, WindowMixin):
                 """Annotation file priority:
                 PascalXML > YOLO
                 """
-                if os.path.isfile(xmlPath):
-                    self.loadPascalXMLByFilename(xmlPath)
+                if os.path.isfile(xmlPath) or self.isInitAuto:
+                    self.loadPascalXMLByFilename(xmlPath, filePath)
                 elif os.path.isfile(txtPath):
                     self.loadYOLOTXTByFilename(txtPath)
             else:
                 xmlPath = os.path.splitext(filePath)[0] + XML_EXT
                 txtPath = os.path.splitext(filePath)[0] + TXT_EXT
-                if os.path.isfile(xmlPath):
-                    self.loadPascalXMLByFilename(xmlPath)
+                if os.path.isfile(xmlPath) or self.isInitAuto:
+                    self.loadPascalXMLByFilename(xmlPath, filePath)
                 elif os.path.isfile(txtPath):
                     self.loadYOLOTXTByFilename(txtPath)
 
@@ -1284,7 +1329,8 @@ class MainWindow(QMainWindow, WindowMixin):
                 if isinstance(filename, (tuple, list)):
                     filename = filename[0]
             print("filname",filename)
-            self.loadPascalXMLByFilename(filename)
+            filePath = os.path.splitext(filename)[0] + ".jpg"
+            self.loadPascalXMLByFilename(filename, filePath)
 
     def openDirDialog(self, _value=False, dirpath=None, silent=False):
         if not self.mayContinue():
@@ -1487,6 +1533,8 @@ class MainWindow(QMainWindow, WindowMixin):
             print("待标注一张", index, len(self.mImgList), self.fileListWidget.count())
 
     def get_back(self, _value=False):
+        self.isInitAuto=False
+        # self.do_autoLabel = False
         back_item = self.back_queue.pop()
         shutil.move(back_item.get("dst_img"), back_item.get("ori_img"))
         shutil.move(back_item.get("dst_xml"), back_item.get("ori_xml"))
@@ -1687,18 +1735,53 @@ class MainWindow(QMainWindow, WindowMixin):
                     else:
                         self.labelHist.append(line)
 
-    def loadPascalXMLByFilename(self, xmlPath):
+    def loadPascalXMLByFilename(self, xmlPath, imgPath):
         if self.filePath is None:
             return
         if os.path.isfile(xmlPath) is False:
-            return
+            if self.do_autoLabel and self.isInitAuto:
+                model_rect = np.array([])
+                # print(model_rect.size,"----------------------------???:",model_rect, model_rect.shape)
+                shapes = self.auto_drawRect(imgPath, model_rect, [])    
+                self.canvas.verified = False
+        else:
+            self.set_format(FORMAT_PASCALVOC)
+            tVocParseReader = PascalVocReader(xmlPath)
+            shapes = tVocParseReader.getShapes()
+            do_init = False
+            if(len(shapes)>0):
+                do_init = True
+            if self.do_autoLabel and self.isInitAuto:
+                model_rect = np.array([np.array([points[0][0],points[0][1],points[2][0]-points[0][0],points[2][1]-points[0][1]]) \
+                    for label, points, line_color, fill_color, difficult, truncated in shapes])
+                # print(model_rect.size,"----------------------------???:",model_rect, model_rect.shape)
+                shapes = self.auto_drawRect(imgPath, model_rect, shapes)    
 
-        self.set_format(FORMAT_PASCALVOC)
-
-        tVocParseReader = PascalVocReader(xmlPath)
-        shapes = tVocParseReader.getShapes()
+            self.canvas.verified = tVocParseReader.verified
+        if 1:
+            self.isInitAuto=False
         self.loadLabels(shapes)
-        self.canvas.verified = tVocParseReader.verified
+        
+    def auto_drawRect(self, imgPath, model_rect, shapes):
+        frame = cv2.imread(imgPath)
+        self.auto_results.clear()
+        outputs = self.auto_model.infer(frame)
+        for bbox, score, a_label in zip(outputs['bbox'], outputs['best_score'], self.auto_objs):
+            # self.auto_results.append()
+            if(model_rect.size>0):
+                iou_v = iou(np.array(bbox), model_rect)
+                print("iou_v: ",iou_v)
+                if np.amax(iou_v)<self.iou_th:
+                    shapes.append(addResult(a_label.get("label"), bbox, 0, 0))
+                else:
+                    tmp_i = np.argmax(iou_v)
+                    shapes[tmp_i] = addResult(a_label.get("label"), bbox, 0, 0)
+
+            else:
+                shapes.append(addResult(a_label.get("label"), bbox, 0, 0))
+
+        return shapes
+
 
     def loadYOLOTXTByFilename(self, txtPath):
         if self.filePath is None:
