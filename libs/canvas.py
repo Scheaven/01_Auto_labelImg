@@ -438,8 +438,6 @@ class Canvas(QWidget):
             return shape
 
     def boundedShiftShape(self, shape):
-        # Try to move in one direction, and if it fails in another.
-        # Give up if both fail.
         point = shape[0]
         offset = QPointF(2.0, 2.0)
         self.calculateOffsets(shape, point)
@@ -533,9 +531,6 @@ class Canvas(QWidget):
         self.update()
 
     def closeEnough(self, p1, p2):
-        #d = distance(p1 - p2)
-        #m = (p1-p2).manhattanLength()
-        # print "d %.2f, m %d, %.2f" % (d, m, d - m)
         return distance(p1 - p2) < self.epsilon
 
     # These two, along with a call to adjustSize are required for the
@@ -573,7 +568,6 @@ class Canvas(QWidget):
     def keyPressEvent(self, ev):
         key = ev.key()
         if key == Qt.Key_Escape and self.current:
-            print('ESC press')
             self.current = None
             self.drawingPolygon.emit(False)
             self.update()
@@ -589,27 +583,22 @@ class Canvas(QWidget):
             self.moveOnePixel('Down')
 
     def moveOnePixel(self, direction):
-        # print(self.selectedShape.points)
         if direction == 'Left' and not self.moveOutOfBound(QPointF(-1.0, 0)):
-            # print("move Left one pixel")
             self.selectedShape.points[0] += QPointF(-1.0, 0)
             self.selectedShape.points[1] += QPointF(-1.0, 0)
             self.selectedShape.points[2] += QPointF(-1.0, 0)
             self.selectedShape.points[3] += QPointF(-1.0, 0)
         elif direction == 'Right' and not self.moveOutOfBound(QPointF(1.0, 0)):
-            # print("move Right one pixel")
             self.selectedShape.points[0] += QPointF(1.0, 0)
             self.selectedShape.points[1] += QPointF(1.0, 0)
             self.selectedShape.points[2] += QPointF(1.0, 0)
             self.selectedShape.points[3] += QPointF(1.0, 0)
         elif direction == 'Up' and not self.moveOutOfBound(QPointF(0, -1.0)):
-            # print("move Up one pixel")
             self.selectedShape.points[0] += QPointF(0, -1.0)
             self.selectedShape.points[1] += QPointF(0, -1.0)
             self.selectedShape.points[2] += QPointF(0, -1.0)
             self.selectedShape.points[3] += QPointF(0, -1.0)
         elif direction == 'Down' and not self.moveOutOfBound(QPointF(0, 1.0)):
-            # print("move Down one pixel")
             self.selectedShape.points[0] += QPointF(0, 1.0)
             self.selectedShape.points[1] += QPointF(0, 1.0)
             self.selectedShape.points[2] += QPointF(0, 1.0)

@@ -3,7 +3,7 @@ Project: STracker
 Author: Scheaven
 Date: 2022-01-12 18:29:06
 LastEditors: Scheaven
-LastEditTime: 2022-08-02 15:19:30
+LastEditTime: 2022-09-01 11:05:42
 Remark: Never cease to pursue!
 '''
 from time import time
@@ -22,7 +22,6 @@ def convert_score(score):
     score = score.data[:, 1]
     score = score.cpu()
     score = score.numpy()
-    # score = F.softmax(score, dim=1).data[:, 1].cpu().numpy()
     return score
 
 def convert_confK(confidences):
@@ -36,18 +35,13 @@ def convert_confK(confidences):
     return score
     
 def convert_bboxK(delta, anchor):
-    print("delta：",delta.shape)
     delta = delta.permute(1, 2, 3, 0).contiguous().view(4, -1, delta.size()[0])
     delta = delta.data.cpu().numpy()
-    #     print(anchor[:, :, 0],  anchor[:, :, 1],  anchor[:, :, 2],  anchor[:, :, 3])
     
     delta[0, :] = delta[0, :] * anchor[:, :, 2] + anchor[:, :, 0]
     delta[1, :] = delta[1, :] * anchor[:, :, 3] + anchor[:, :, 1]
     delta[2, :] = np.exp(delta[2, :]) * anchor[:, :, 2]
     delta[3, :] = np.exp(delta[3, :]) * anchor[:, :, 3]
-    # for i in range(3125):
-    #     print(delta[0, i], delta[1, i], delta[2, i], delta[3, i])
-    # exit(0)
     return delta
 
 def check_bbox(point, size, boundary):
@@ -56,7 +50,6 @@ def check_bbox(point, size, boundary):
     point = np.where(0 < pkey, pkey, 0)
     skey = np.where(size < boundary, size, boundary)
     size = np.where(10 < skey, skey, 10)
-    # print(point, size)
     return point, size
 
 def iou(bbox, shapes):

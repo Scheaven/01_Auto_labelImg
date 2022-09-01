@@ -72,8 +72,6 @@ class YOLOWriter:
             # print (classIndex, xcen, ycen, w, h)
             out_file.write("%d %.6f %.6f %.6f %.6f\n" % (classIndex, xcen, ycen, w, h))
 
-        # print (classList)
-        # print (out_class_file)
         for c in classList:
             out_class_file.write(c+'\n')
 

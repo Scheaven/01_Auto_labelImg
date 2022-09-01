@@ -3,7 +3,7 @@ Project: STracker
 Author: Scheaven
 Date: 2022-01-12 15:57:05
 LastEditors: Scheaven
-LastEditTime: 2022-07-29 17:53:50
+LastEditTime: 2022-09-01 11:03:53
 Remark: Never cease to pursue!
 '''
 from multiprocessing.connection import wait
@@ -43,9 +43,6 @@ class BaseTracker(object):
         context_xmax = context_xmin + sz - 1
         context_ymin = np.floor(pos[:, 1] - c + 0.5)
         context_ymax = context_ymin + sz - 1
-        # print(sz , ":" , im_sz , ":" ,c , original_sz)
-        # print(context_xmin, context_xmax, context_ymin, context_ymax)
-        # print("--------------------------------------")
         left_pad = np.where(0. < context_xmin, 0, (-context_xmin).astype(np.int64))
         top_pad = np.where(0. < context_ymin, 0, (-context_ymin).astype(np.int64))
         right_pad = np.where(0. < (context_xmax - im_sz[1] + 1), (context_xmax - im_sz[1] + 1).astype(np.int64), 0)
@@ -55,13 +52,6 @@ class BaseTracker(object):
         context_xmax = context_xmax + left_pad
         context_ymin = context_ymin + top_pad
         context_ymax = context_ymax + top_pad
-
-        print(context_xmin, context_xmax, context_ymin, context_ymax)
-        print("------------left_pad--------------------------")
-        print(left_pad, top_pad, right_pad, bottom_pad)
-        # cv2.imwrite("02_img.jpg", im)
-        # exit(0)
-        # im = cv2.imread("02_img.jpg")
 
         r, c, k = im.shape
         if self.ACFalg:
@@ -87,27 +77,14 @@ class BaseTracker(object):
                 im_patch = im[int(context_ymin[i]):int(context_ymax[i] + 1),
                             int(context_xmin[i]):int(context_xmax[i] + 1), :]
  
-            # cv2.imwrite("03_img.jpg", im_patch)
-            # imsdf = cv2.imread("03_img.jpg")
-            # print("imgdfo04:", imsdf.shape)
-            # if not np.array_equal(model_sz, original_sz):
             imsdf = cv2.resize(im_patch, (model_sz, model_sz))
 
-            # cv2.imshow("sdf", im_patch)
-            # cv2.waitKey(0)
-            # print(im_patch)
-            # print(im_patch.shape)
             n_im_patch = imsdf
-            # n_im_patch = cv2.imread("01_test.jpg")
-            # print(":::::::",int(context_ymin[i]),int(context_ymax[i] + 1),
-            #                 int(context_xmin[i]),int(context_xmax[i] + 1))
             n_im_patch = n_im_patch.transpose(2, 0, 1).astype(np.float32)
             n_im_patch = torch.from_numpy(n_im_patch)
             if cfg.CUDA:
                 n_im_patch = n_im_patch.cuda()
             n_im_patch = n_im_patch.unsqueeze(0)
-            # print(n_im_patch)
-            # exit(0)
             patch_list.append(n_im_patch)
 
         patchs = torch.cat(patch_list, dim=0)

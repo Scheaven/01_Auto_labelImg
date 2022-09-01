@@ -3,7 +3,7 @@ Project: STracker
 Author: Scheaven
 Date: 2022-01-12 11:04:44
 LastEditors: Scheaven
-LastEditTime: 2022-07-29 17:23:20
+LastEditTime: 2022-09-01 11:03:16
 Remark: Never cease to pursue!
 '''
 import torch.nn as nn
@@ -23,20 +23,8 @@ class ModelBuilder(nn.Module):
         return self.temp_feats 
 
     def track(self, x):
-        t1 = time.time()
         feats = self.backbone(x)
-        # print(feats)
-        # exit(0)
-        t2 = time.time()
         cls, loc = self.rpn_head(self.temp_feats, feats)
-        # print("banck time:", (time.time()-t2)*1000, (t2-t1)*1000)
-        # print(cls.size())
-        # cls = cls.permute(1,2,3,0).contiguous().view(2,-1).permute(1, 0)
-        # score = F.softmax(cls, dim=1)[:,1]
-        # delta = loc.permute(1,2,3,0).contiguous().view(4,-1)
-        # print(score)
-        # print("---------------------------")
-        # exit(0)
         return {
             'cls': cls,
             'loc': loc
@@ -44,5 +32,4 @@ class ModelBuilder(nn.Module):
         
     def forward(self, template):
         xf = self.backbone(template)
-        print(xf.size())
         return xf

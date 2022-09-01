@@ -3,7 +3,7 @@ Project: STracker
 Author: Scheaven
 Date: 2022-01-12 15:51:36
 LastEditors: Scheaven
-LastEditTime: 2022-08-02 16:06:30
+LastEditTime: 2022-09-01 11:04:23
 Remark: Never cease to pursue!
 '''
 from cv2 import threshold
@@ -28,11 +28,6 @@ class Tracker(BaseTracker):
         device = torch.device('cuda' if cfg.CUDA else 'cpu')
         
         model = ModelBuilder()
-        # model.load_state_dict(torch.load(args.model_path))
-        # model.load_state_dict(torch.load(args.model_path,
-        #     map_location=lambda storage, loc: storage.cpu()))
-        # model.eval().to(device)
-        # load model
         model = self.load_pretrain(model, "autoTools/label_model.pth").cuda().eval().to(device)
         model.eval()
 
@@ -40,11 +35,6 @@ class Tracker(BaseTracker):
         self.init_paras()
         print("------------model init ok-----------")
     def reset_autoModel(self):
-        # del self.bboxs_center
-        # del self.bboxs_size
-        # del self.window
-        # del self.anchors
-
         self.init_paras()
 
     def init_paras(self):
@@ -101,94 +91,40 @@ class Tracker(BaseTracker):
         return anchor
 
     def set_inf(self, img, bboxs):
-        # print("------------------")
-        # print(bboxs)
-        # cv2.imshow("-==", img)
-        # cv2.waitKey(0)
-        # exit(0)
         self.bboxs_center = np.array([bboxs[:, 0]+(bboxs[:, 2]-1)/2, bboxs[:, 1]+(bboxs[:, 3]-1)/2]).T
         self.bboxs_size = bboxs[:, 2:4]
         w_z = self.bboxs_size.T + cfg.TRACK.CONTEXT_AMOUNT * np.sum(self.bboxs_size, axis=1) # 按比例裁剪
         s_z = np.round(np.sqrt(w_z[0, :]*w_z[1, :]))
 
-        # print(self.bboxs_center, self.bboxs_size)
-        # print(w_z, s_z)
-        # exit(0)
-
         z_crop = self.Tcrop_img(img, self.bboxs_center,
                             cfg.TRACK.EXEMPLAR_SIZE,
                             s_z)
-        
-        # print(bboxs[0][0],bboxs[0][0]+bboxs[0][2],bboxs[0][1],bboxs[0][1]+bboxs[0][3])
-        # im_patch = img[bboxs[0][1]:bboxs[0][1]+bboxs[0][3],bboxs[0][0]:bboxs[0][0]+bboxs[0][2]:]
-        # im_patch = cv2.resize(im_patch, (127, 127))
-        # # cv2.imshow("Sdfg", nim_patch)
-        # # cv2.waitKey(0)
-        # im_patch = im_patch.transpose(2, 0, 1).astype(np.float32)
-        # im_patch = torch.from_numpy(im_patch)
-        # patch_list =[]
-        # if cfg.CUDA:
-        #     im_patch = im_patch.cuda()
-        # im_patch = im_patch.unsqueeze(0)
-
-        # patch_list.append(im_patch)
-
-        # z_crop = torch.cat(patch_list, axis=0)                  
-        # print(z_crop)
-        # exit(0)
         return z_crop
 
     def init(self, img, bboxs):
         batchInputs = self.set_inf(img, np.array(bboxs))
 
         # 生成script pt
-        # example = torch.rand(1, 3, 127, 127).cuda()
-        # traced_script_module = torch.jit.script(self.convert_model)
-        # traced_script_module = torch.jit.trace(self.model, batchInputs)
-        # output = self.model(batchInputs)
-        # traced_script_module.save("features.pt")
-        # # print(output)
-        # exit(0)
         prob_outs = self.model.template(batchInputs)
-        # print(prob_outs)
-        # for p in prob_outs:
-        #     print(p)
-        # print("init feateue size: ",prob_outs.size())
-        # exit(0)
         self.window = np.tile(self.window, (len(bboxs), 1)).transpose(1, 0)
         self.anchors = np.tile(self.anchors[:, np.newaxis, :], (1, len(bboxs), 1))
 
     def currCrop(self, img):
         w_z = self.bboxs_size.T + cfg.TRACK.CONTEXT_AMOUNT * np.sum(self.bboxs_size, axis=1)  # 按比例裁剪
         s_z = np.round(np.sqrt(w_z[0, :]*w_z[1, :]))
-        print(w_z ," s_z: ", s_z)
 
         self.scale = cfg.TRACK.EXEMPLAR_SIZE / s_z
         s_x = s_z * (cfg.TRACK.INSTANCE_SIZE / cfg.TRACK.EXEMPLAR_SIZE)
-        print("\nEXEMPLAR_SIZE",cfg.TRACK.EXEMPLAR_SIZE , "\nscale: ", self.scale, "\ns_x:", s_x)
-        print(self.bboxs_center, cfg.TRACK.INSTANCE_SIZE)
         x_crop = self.Tcrop_img(img, self.bboxs_center,
                                 cfg.TRACK.INSTANCE_SIZE,
                                 s_x)
-        # exit(0)
-        # im_patch = cv2.resize(img, (cfg.TRACK.INSTANCE_SIZE, cfg.TRACK.INSTANCE_SIZE))
-
-        # im_patch = im_patch.transpose(2, 0, 1).astype(np.float32)
-        # im_patch = torch.from_numpy(im_patch)
-        # if cfg.CUDA:
-        #     im_patch = im_patch.cuda()
-        # x_crop = im_patch.unsqueeze(0)
         return x_crop
 
     def infer(self, img):
         batchInputs = self.currCrop(img)
-        # print(batchInputs)
-        # exit(0)
         outputs = self.model.track(batchInputs)
         score = convert_confK(outputs['cls'])
         pred_bbox = convert_bboxK(outputs['loc'], self.anchors)
-        # print(outputs['loc'])
-        # exit(0)
         
         def change(r):
             return np.maximum(r, 1. / r)
@@ -203,20 +139,11 @@ class Tracker(BaseTracker):
         r_c = change((self.bboxs_size[:, 0]/self.bboxs_size[:, 1]) /
                      (pred_bbox[2, :, :]/pred_bbox[3, :, :]))
         penalty = np.exp(-(r_c * s_c - 1) * cfg.TRACK.PENALTY_K)
-        # for i in range(3125):
-        #     print(s_c[i], r_c[i], penalty[i])
-        # exit(0)
-        # print(penalty[0], self.bboxs_size[:, 0], self.bboxs_size[:, 1])
         pscore = penalty * score
-        # for i in range(3125):
-        #     print(pscore[i], score[i], penalty[i])
-        # exit(0)
         pscore = pscore * (1 - cfg.TRACK.WINDOW_INFLUENCE) + \
             self.window * cfg.TRACK.WINDOW_INFLUENCE
 
         best_idx = np.argmax(pscore, axis=0)
-        # print("pscore: ", pscore, best_idx)
-        # exit(0)
 
         bbox_list = []
         score_list = []
@@ -234,17 +161,7 @@ class Tracker(BaseTracker):
         cpoint = bbox[:, 0:2] + self.bboxs_center[:, 0:2]
         n_size = self.bboxs_size * (1 - lr) + bbox[:, 2:4] * lr
 
-        # print(best_idx, score[best_idx[0]])
-        # print("scale:%f x%f y%f w%f h%f" %scale %offset_bbox[0].x %offset_bbox[0].y %offset_bbox[0].w %offset_bbox[0].h)
-        # print("lr:{} x {} y {} w {} h {}".format(lr, cx ,cy ,n_width ,n_height))
-        # print(self.scale,bbox)
-        # print(lr,cpoint, n_size)
-        
-
-
         self.bboxs_center, self.bboxs_size = check_bbox(cpoint, n_size, img.shape[:2])
-        # print(self.bboxs_center, self.bboxs_size)
-        # exit(0)
         bbox = np.concatenate(((self.bboxs_center - self.bboxs_size/2), self.bboxs_size), axis=1)
         return {
             'bbox': bbox.tolist(),   # [x, y, width, height]

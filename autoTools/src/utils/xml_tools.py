@@ -38,22 +38,8 @@ class XMLTool(object):
         node_depth = SubElement(node_size, 'depth')
         node_depth.text = '3'
 
-        # xml = tostring(node_root, pretty_print = True)
-        # self.dom = parseString(xml)
-        # self.dom.write(xml_path)
-
-
-        # country = ET.SubElement(root,'country', {'name':'Liechtenstein'})
-        # rank = ET.SubElement(country,'rank')
-        # rank.text = '1'
-        # year = ET.SubElement(country,'year')
-        # year.text = '2008'
-
         self.tree=ET.ElementTree(node_root)
         self.tree.write(xml_path)
-
-        #print xml 打印查看结果
-        # return dom
 
     def add_object(self, box, label):
         # root = self.dom.documentElement
@@ -106,13 +92,8 @@ class UpdateXMLTool(object):
         self.xml_path = xml_path
 
         self.tree=ET.parse(xml_path)
-        # self.tree = ElementTree()
-        # self.tree.parse(xml_path)
-        # self.tree=ET.ElementTree(root)
-        print("root::::", xml_path)
 
     def add_object(self, box, label):
-        # root = self.dom.documentElement
         root = self.tree.getroot()
 
         node_object =  ET.Element('object')
@@ -132,11 +113,8 @@ class UpdateXMLTool(object):
         node_ymax.text = str(int(box[3]))
 
         self.pretty_xml(node_object, '\t', '\n')
-        # root = ET.fromstring(xml)
         root.append(node_object)
-        # root.insert(-1, node_object)
         self.tree.write(self.xml_path)
-        # tree.write('sampleFileNew.xml')
 
     def pretty_xml(self, element, indent, newline, level=0):  # elemnt为传进来的Elment类，参数indent用于缩进，newline用于换行
         if element:  # 判断element是否有子元素    

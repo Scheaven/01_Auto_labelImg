@@ -706,10 +706,8 @@ class MainWindow(QMainWindow, WindowMixin):
     def setEditMode(self):
         assert self.advanced()
         self.toggleDrawMode(True)
-        # print("--self.bug_difficult:",  self.bug_difficult)
         # self.difficult = self.bug_difficult
         # self.truncated = self.bug_truncated
-        # print("--self.bdifficult:",  self.difficult)
         self.labelSelectionChanged()
 
     def updateFileMenu(self):
@@ -845,7 +843,6 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def remLabel(self, shape):
         if shape is None:
-            # print('rm empty label')
             return
         item = self.shapesToItems[shape]
         self.labelList.takeItem(self.labelList.row(item))
@@ -939,10 +936,6 @@ class MainWindow(QMainWindow, WindowMixin):
                 for item in self.auto_objs:
                     bbox = list(map(int, item.get("rect")))
                     bboxs.append(bbox)
-                    # cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[0]+bbox[2], bbox[1]+bbox[3]), (0, 255, 0), 3)
-                    # cv2.putText(frame, item.get("label"), (bbox[0], bbox[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-                # cv2.imshow("sdf",frame)
-                # cv2.waitKey(0)
                 if(len(bboxs)):
                     self.auto_model.init(frame, bboxs)
                     self.isInitAuto = True
@@ -1328,7 +1321,6 @@ class MainWindow(QMainWindow, WindowMixin):
             if filename:
                 if isinstance(filename, (tuple, list)):
                     filename = filename[0]
-            print("filname",filename)
             filePath = os.path.splitext(filename)[0] + ".jpg"
             self.loadPascalXMLByFilename(filename, filePath)
 
@@ -1348,11 +1340,7 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             targetDirPath = ustr(defaultOpenDirPath)
 
-        # print(targetDirPath)
-        # self.defaultSaveDir = "".join([targetDirPath, "/Annotations/"])
-        print(os.getcwd(),os.sep)
         self.defaultSaveDir = "".join([targetDirPath, os.sep, "Annotations", os.sep])
-        print(self.defaultSaveDir)
         self.lastOpenDir = targetDirPath
         self.importDirImages(targetDirPath)
 
@@ -1371,12 +1359,8 @@ class MainWindow(QMainWindow, WindowMixin):
         for imgPath in self.mImgList:
             item = QListWidgetItem(imgPath)
             self.fileListWidget.addItem(item)
-        print("img size:",self.fileListWidget.count())
+        print("The total number of images: ",self.fileListWidget.count())
         self.fileListWidget
-        # print("self.defaultSaveDir",self.defaultSaveDir)
-        # filename = self.mImgList[0].split(".")[0].replace("/JPEGImages/", "/Annotations/") + ".xml"
-        # if self.labelFileFormat == LabelFileFormat.PASCAL_VOC:
-        #     self.loadPascalXMLByFilename(filename)
 
 
 
@@ -1456,10 +1440,6 @@ class MainWindow(QMainWindow, WindowMixin):
 
         return True
 
-        # filename = self.mImgList[0].split(".")[0].replace("/JPEGImages/", "/Annotations/") + ".xml"
-        # if self.labelFileFormat == LabelFileFormat.PASCAL_VOC:
-        #     self.loadPascalXMLByFilename(filename)
-
     def imgPass(self, _value=False):
         movePath = self.filePath
         if movePath is not None:
@@ -1490,9 +1470,6 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.back_queue.pop(0)
 
             index = self.mImgList.index(movePath)
-            # print("=====", index, len(self.mImgList), self.fileListWidget.count())
-            # fileWidgetItem = self.fileListWidget.item(index)
-            # self.fileListWidget.removeItemWidget(fileWidgetItem)
             self.fileListWidget.takeItem(index)
             self.mImgList.pop(index)
             print("通过一张", index, len(self.mImgList), self.fileListWidget.count())
@@ -1525,9 +1502,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.back_queue.pop(0)
 
             index = self.mImgList.index(movePath)
-            # print("=====", index, len(self.mImgList), self.fileListWidget.count())
             fileWidgetItem = self.fileListWidget.item(index)
-            # self.fileListWidget.removeItemWidget(fileWidgetItem)
             self.fileListWidget.takeItem(index)
             self.mImgList.pop(index)
             print("待标注一张", index, len(self.mImgList), self.fileListWidget.count())
@@ -1543,50 +1518,7 @@ class MainWindow(QMainWindow, WindowMixin):
         item = QListWidgetItem(back_item.get("ori_img"))
         self.fileListWidget.insertItem(0, item)
         self.loadFile(back_item.get("ori_img"))
-
-
-
-        # index = self.mImgList.index(movePath)
-        # # print("=====",index,len(self.mImgList),self.fileListWidget.count())
-        # fileWidgetItem = self.fileListWidget.item(index)
-        # # self.fileListWidget.removeItemWidget(fileWidgetItem)
-        # self.fileListWidget.takeItem(index)
-        # self.mImgList.pop(index)
         print("撤销一张：", len(self.mImgList), self.fileListWidget.count())
-        #
-        #
-        # for imgPath in self.mImgList:
-        #     item = QListWidgetItem(imgPath)
-        #     self.fileListWidget.addItem(item)
-        # print("img size:", self.fileListWidget.count())
-        # self.fileListWidget
-
-
-        # if movePath is not None:
-        #     if not self.openNextImg():
-        #         return
-        #     path_list = movePath.split(os.sep)
-        #     path_list[-3] = "error"
-        #     n_path = os.sep
-        #     for path in path_list:
-        #         n_path = os.path.join(n_path, path)
-        #     img_path, img_name = os.path.split(n_path)
-        #     if not os.path.exists(img_path):
-        #         os.makedirs(img_path)
-        #     shutil.move(movePath, n_path)
-        #     xml_path = img_path.replace("JPEGImages", "Annotations")
-        #     print(img_path, xml_path)
-        #     if not os.path.exists(xml_path):
-        #         os.makedirs(xml_path)
-        #     shutil.move(os.path.splitext(movePath)[0].replace("JPEGImages", "Annotations")+".xml", os.path.join(xml_path,os.path.splitext(img_name)[0]+".xml"))
-        #
-        #     index = self.mImgList.index(movePath)
-        #     print("=====",index,len(self.mImgList),self.fileListWidget.count())
-        #     fileWidgetItem = self.fileListWidget.item(index)
-        #     # self.fileListWidget.removeItemWidget(fileWidgetItem)
-        #     self.fileListWidget.takeItem(index)
-        #     self.mImgList.pop(index)
-        #     print("=====", index, len(self.mImgList), self.fileListWidget.count())
 
     def openFile(self, _value=False):
         if not self.mayContinue():
@@ -1741,7 +1673,6 @@ class MainWindow(QMainWindow, WindowMixin):
         if os.path.isfile(xmlPath) is False:
             if self.do_autoLabel and self.isInitAuto:
                 model_rect = np.array([])
-                # print(model_rect.size,"----------------------------???:",model_rect, model_rect.shape)
                 shapes = self.auto_drawRect(imgPath, model_rect, [])    
                 self.canvas.verified = False
         else:
@@ -1754,7 +1685,6 @@ class MainWindow(QMainWindow, WindowMixin):
             if self.do_autoLabel and self.isInitAuto:
                 model_rect = np.array([np.array([points[0][0],points[0][1],points[2][0]-points[0][0],points[2][1]-points[0][1]]) \
                     for label, points, line_color, fill_color, difficult, truncated in shapes])
-                # print(model_rect.size,"----------------------------???:",model_rect, model_rect.shape)
                 shapes = self.auto_drawRect(imgPath, model_rect, shapes)    
 
             self.canvas.verified = tVocParseReader.verified
@@ -1770,7 +1700,6 @@ class MainWindow(QMainWindow, WindowMixin):
             # self.auto_results.append()
             if(model_rect.size>0):
                 iou_v = iou(np.array(bbox), model_rect)
-                print("iou_v: ",iou_v)
                 if np.amax(iou_v)<self.iou_th:
                     shapes.append(addResult(a_label.get("label"), bbox, 0, 0))
                 else:
@@ -1792,7 +1721,6 @@ class MainWindow(QMainWindow, WindowMixin):
         self.set_format(FORMAT_YOLO)
         tYoloParseReader = YoloReader(txtPath, self.image)
         shapes = tYoloParseReader.getShapes()
-        print(shapes)
         self.loadLabels(shapes)
         self.canvas.verified = tYoloParseReader.verified
 

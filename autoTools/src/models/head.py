@@ -3,7 +3,7 @@ Project: STracker
 Author: Scheaven
 Date: 2022-01-12 12:06:18
 LastEditors: Scheaven
-LastEditTime: 2022-07-28 17:15:08
+LastEditTime: 2022-09-01 11:03:33
 Remark: Never cease to pursue!
 '''
 # from typing import ForwardRef
@@ -60,18 +60,10 @@ class Head(nn.Module):
         return corr
 
     def forward(self, kernel, search):
-        kernel_list = []
-        # t1 = time.time()
         search = self.conv_search(search)
-        # search = self.deconv_search(search)
-        # t2 = time.time()
         kernel = self.conv_kernel(kernel)
-        # kernel = self.deconv_kernel(kernel)
-        # t3 = time.time()
         feature = self.feature_corr(search, kernel)
-        # t4 = time.time()
         out = self.head(feature)
-        # print("?? time::", (time.time() - t4)*1000, (t4 -t3)*1000, (t3 -t2)*1000, (t2 -t1)*1000)
         return out
 
 class MulHead(nn.Module):
@@ -81,9 +73,6 @@ class MulHead(nn.Module):
         self.loc = Head(256, 256, 4*5)
 
     def forward(self, z, x):
-        # t1 = time.time()
         cls = self.cls(z, x)
-        # t2 = time.time()
         loc = self.loc(z, x)
-        # print("banckdddddd time::", (time.time() - t2)*1000, (t2 -t1)*1000)
         return cls, loc
